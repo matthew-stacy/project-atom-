@@ -31,6 +31,7 @@ options = PoseLandmarkerOptions(
 
 cap = cv2.VideoCapture(0)
 start = time.time()
+last = time.time()
 
 with PoseLandmarker.create_from_options(options) as landmarker:
     while cap.isOpened():
@@ -61,7 +62,13 @@ with PoseLandmarker.create_from_options(options) as landmarker:
 
         # Mirror the picture so it feels like a mirror, then add the text
         frame = cv2.flip(frame, 1)
-        cv2.putText(frame, text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+        now = time.time()
+        fps = 1 / (now - last)
+        last = now
+
+        cv2.putText(frame, f"{text}  |  {fps:.0f} FPS", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        print(f"{text} | {fps:.0f} FPS")
         cv2.imshow("Project ATOM - pose", frame)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
