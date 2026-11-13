@@ -27,5 +27,5 @@ A robotics project built around the Feetech/Waveshare ST3215 serial bus servo.
 ## Status
 - [x] Servo bracket designed in Fusion
 - [x] Python SDK installed and servo communication confirmed
-- [ ] Read servo position
-- [ ] Move servo to target positions
+- [x] Read servo position
+- [x] Move servo to target positions
