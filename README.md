@@ -39,8 +39,9 @@ Updated upstream
 https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
 
 
+## Results
 
-## Results (2-minute run, 1797 cycles)
+### Baseline (2-minute run, 1797 cycles)
 | Stage | p50 ms | p95 ms |
 |---|---|---|
 | Capture | 21.9 | 26.5 |
@@ -53,3 +54,4 @@ https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
 
 - ~15 FPS, 0.1% of cycles over 100 ms, 0 service errors
 - Bottleneck: camera wait + preview rendering (~63% of the cycle), not inference
+- Raw data: [`results/baseline_run.csv`](results/baseline_run.csv) · Summary: [`results/baseline_summary.txt`](results/baseline_summary.txt)
