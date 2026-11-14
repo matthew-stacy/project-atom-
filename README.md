@@ -32,4 +32,9 @@ A robotics project built around the Feetech/Waveshare ST3215 serial bus servo.
 - [x] Move servo to target positions
 - [x] Standalone pose tracker (elbow angle + FPS)
 - [x] FastAPI service with /predict endpoint
-- [ ] Map elbow angle to servo position (live mimic)
+- [x] Map elbow angle to servo position (live mimic)
+
+## Demo 
+https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
+
+
