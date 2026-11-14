@@ -1,0 +1,16 @@
+A: results/baseline_run.csv
+B: results/optimized_run.csv
+
+Stage              A p50    B p50   change    A p95    B p95   change
+---------------------------------------------------------------------
+capture             21.9      0.0    -21.9     26.5     10.9    -15.6
+encode               0.8      0.7     -0.1      0.9      0.8     -0.1
+network              2.9      2.6     -0.2      3.0      2.8     -0.2
+inference           20.4     19.4     -1.0     20.9     19.7     -1.2
+servo write          0.5      0.4     -0.0      0.5      0.5      0.0
+display             20.0      0.0    -20.0     20.3     20.2     -0.1
+END-TO-END          66.3     23.7    -42.5     71.4     53.9    -17.5
+camera->servo          -     23.4        -        -     35.2        -
+
+FPS:                 A 15.0   B 29.9
+Cycles over 100 ms:  A 0.1%   B 0.0%

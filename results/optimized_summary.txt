@@ -1,0 +1,20 @@
+Log:      results/optimized_run.csv
+Cycles:   3593
+Duration: 120.0 s
+FPS:      29.9
+
+Stage                n    p50 ms    p95 ms    max ms
+----------------------------------------------------
+capture           3593       0.0      10.9      31.6
+encode            3593       0.7       0.8       1.0
+network           3593       2.6       2.8       5.0
+inference         3593      19.4      19.7      39.1
+servo write       3059       0.4       0.5       0.7
+display           3593       0.0      20.2     250.0
+END-TO-END        3593      23.7      53.9     293.6
+camera->servo     3593      23.4      35.2      52.6
+
+Cycles over 100 ms: 0.0% (1 of 3593)
+Service errors:     0
+Arm not visible:    5 cycles
+Skipped frames:     7

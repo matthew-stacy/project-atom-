@@ -55,3 +55,20 @@ https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
 - ~15 FPS, 0.1% of cycles over 100 ms, 0 service errors
 - Bottleneck: camera wait + preview rendering (~63% of the cycle), not inference
 - Raw data: [`results/baseline_run.csv`](results/baseline_run.csv) · Summary: [`results/baseline_summary.txt`](results/baseline_summary.txt)
+
+### Optimized (threaded capture + preview every 3rd frame)
+| Stage | Baseline p50 | Optimized p50 | Baseline p95 | Optimized p95 |
+|---|---|---|---|---|
+| Capture | 21.9 | 0.0 | 26.5 | 10.9 |
+| Encode | 0.8 | 0.7 | 0.9 | 0.8 |
+| Network | 2.9 | 2.6 | 3.0 | 2.8 |
+| Inference | 20.4 | 19.4 | 20.9 | 19.7 |
+| Servo write | 0.5 | 0.4 | 0.5 | 0.5 |
+| Display | 20.0 | 0.0 | 20.3 | 20.2 |
+| **End-to-end** | **66.3** | **23.7** | **71.4** | **53.9** |
+| **Camera → servo** | – | **23.4** | – | **35.2** |
+
+- FPS: **15 → 29.9** (now limited by the camera's 30 FPS, not the code)
+- Cycles over 100 ms: 0.1% → 0.0%
+- Each change measured separately: threaded capture alone took end-to-end from 66.3 to 43.3 ms; the lighter preview took it to 23.7 ms
+- Data: [`results/`](results/)
