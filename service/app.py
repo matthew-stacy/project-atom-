@@ -1,5 +1,6 @@
 import math
 import threading
+import time
 
 import cv2
 import mediapipe as mp
@@ -45,10 +46,12 @@ def predict(file: UploadFile = File(...)):
     image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
     with lock:
+        start = time.perf_counter()
         result = landmarker.detect(image)
+        inference_ms = round((time.perf_counter() - start) * 1000, 1)
 
     if not result.pose_landmarks:
-        return {"person_detected": False}
+        return {"person_detected": False, "inference_ms": inference_ms}
 
     lm = result.pose_landmarks[0]
     s, e, w = lm[SHOULDER], lm[ELBOW], lm[WRIST]
@@ -59,4 +62,5 @@ def predict(file: UploadFile = File(...)):
         "arm_visible": visibility > 0.5,
         "elbow_angle": round(angle_at(s, e, w), 1),
         "visibility": round(visibility, 2),
+        "inference_ms": inference_ms,
     }
