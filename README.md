@@ -34,7 +34,13 @@ A robotics project built around the Feetech/Waveshare ST3215 serial bus servo.
 - [x] FastAPI service with /predict endpoint
 - [x] Map elbow angle to servo position (live mimic)
 
+Updated upstream
 ## Demo 
 https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
 
 
+
+## Results
+- Pose inference: ~20 ms per frame (MediaPipe Pose Landmarker Lite, Macbook Pro)
+- Full loop (camera -> API -> servo): ~45ms (~22 Hz)
+ Stashed changes
