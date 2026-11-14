@@ -40,7 +40,16 @@ https://github.com/user-attachments/assets/81588a6f-7149-407d-b17c-d6eff19aa8b2
 
 
 
-## Results
-- Pose inference: ~20 ms per frame (MediaPipe Pose Landmarker Lite, Macbook Pro)
-- Full loop (camera -> API -> servo): ~45ms (~22 Hz)
- Stashed changes
+## Results (2-minute run, 1797 cycles)
+| Stage | p50 ms | p95 ms |
+|---|---|---|
+| Capture | 21.9 | 26.5 |
+| Encode | 0.8 | 0.9 |
+| Network | 2.9 | 3.0 |
+| Inference | 20.4 | 20.9 |
+| Servo write | 0.5 | 0.5 |
+| Display | 20.0 | 20.3 |
+| **End-to-end** | **66.3** | **71.4** |
+
+- ~15 FPS, 0.1% of cycles over 100 ms, 0 service errors
+- Bottleneck: camera wait + preview rendering (~63% of the cycle), not inference
