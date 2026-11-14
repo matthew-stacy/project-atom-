@@ -25,7 +25,11 @@ A robotics project built around the Feetech/Waveshare ST3215 serial bus servo.
    python servo/ping.py
 
 ## Status
+## Status
 - [x] Servo bracket designed in Fusion
 - [x] Python SDK installed and servo communication confirmed
 - [x] Read servo position
 - [x] Move servo to target positions
+- [x] Standalone pose tracker (elbow angle + FPS)
+- [x] FastAPI service with /predict endpoint
+- [ ] Map elbow angle to servo position (live mimic)
