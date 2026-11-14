@@ -1,5 +1,6 @@
 import csv
 import glob
+import os
 import sys
 
 import numpy as np
@@ -14,61 +15,109 @@ STAGES = [
     ("servo_ms", "servo write"),
     ("display_ms", "display"),
     ("total_ms", "END-TO-END"),
+    ("frame_age_ms", "camera->servo"),
 ]
 
-# Use the file given on the command line, or the newest log
-if len(sys.argv) > 1:
-    path = sys.argv[1]
-else:
-    files = sorted(glob.glob("logs/run_*.csv"))
+
+def load(path):
+    with open(path, newline="") as f:
+        rows = list(csv.DictReader(f))
+    if not rows:
+        print(f"{path} has no rows")
+        raise SystemExit
+    return rows
+
+
+def column(rows, name):
+    return np.array([float(r[name]) for r in rows if r.get(name, "") not in ("", None)])
+
+
+def summarize(path):
+    rows = load(path)
+    first = float(rows[0]["timestamp"])
+    last = float(rows[-1]["timestamp"]) + float(rows[-1]["total_ms"]) / 1000
+    duration = last - first
+    total = column(rows, "total_ms")
+
+    stats = {}
+    for col, label in STAGES:
+        v = column(rows, col)
+        if len(v):
+            stats[label] = (len(v), np.percentile(v, 50), np.percentile(v, 95), v.max())
+        else:
+            stats[label] = None
+
+    skipped = column(rows, "skipped_frames")
+    return {
+        "path": path,
+        "cycles": len(rows),
+        "duration": duration,
+        "fps": len(rows) / duration,
+        "over_pct": (total > OVER_MS).mean() * 100,
+        "over_n": int((total > OVER_MS).sum()),
+        "errors": sum(1 for r in rows if r.get("error")),
+        "not_visible": sum(1 for r in rows if r.get("arm_visible") == "0"),
+        "skipped": int(skipped.sum()) if len(skipped) else None,
+        "stats": stats,
+    }
+
+
+def fmt(value):
+    return f"{value:.1f}" if value is not None else "-"
+
+
+def print_single(s):
+    print(f"Log:      {s['path']}")
+    print(f"Cycles:   {s['cycles']}")
+    print(f"Duration: {s['duration']:.1f} s")
+    print(f"FPS:      {s['fps']:.1f}")
+    print()
+    print(f"{'Stage':<15}{'n':>7}{'p50 ms':>10}{'p95 ms':>10}{'max ms':>10}")
+    print("-" * 52)
+    for _, label in STAGES:
+        st = s["stats"][label]
+        if st is None:
+            print(f"{label:<15}{0:>7}{'-':>10}{'-':>10}{'-':>10}")
+        else:
+            n, p50, p95, mx = st
+            print(f"{label:<15}{n:>7}{p50:>10.1f}{p95:>10.1f}{mx:>10.1f}")
+    print()
+    print(f"Cycles over {OVER_MS} ms: {s['over_pct']:.1f}% ({s['over_n']} of {s['cycles']})")
+    print(f"Service errors:     {s['errors']}")
+    print(f"Arm not visible:    {s['not_visible']} cycles")
+    if s["skipped"] is not None:
+        print(f"Skipped frames:     {s['skipped']}")
+
+
+def print_compare(a, b):
+    print(f"A: {a['path']}")
+    print(f"B: {b['path']}")
+    print()
+    print(f"{'Stage':<15}{'A p50':>9}{'B p50':>9}{'change':>9}{'A p95':>9}{'B p95':>9}{'change':>9}")
+    print("-" * 69)
+    for _, label in STAGES:
+        sa, sb = a["stats"][label], b["stats"][label]
+        a50 = sa[1] if sa else None
+        b50 = sb[1] if sb else None
+        a95 = sa[2] if sa else None
+        b95 = sb[2] if sb else None
+        d50 = fmt(b50 - a50) if (sa and sb) else "-"
+        d95 = fmt(b95 - a95) if (sa and sb) else "-"
+        print(f"{label:<15}{fmt(a50):>9}{fmt(b50):>9}{d50:>9}{fmt(a95):>9}{fmt(b95):>9}{d95:>9}")
+    print()
+    print(f"FPS:                 A {a['fps']:.1f}   B {b['fps']:.1f}")
+    print(f"Cycles over {OVER_MS} ms:  A {a['over_pct']:.1f}%   B {b['over_pct']:.1f}%")
+
+
+# 0 files: newest log | 1 file: summarize it | 2 files: compare A vs B
+args = sys.argv[1:]
+if len(args) == 0:
+    files = glob.glob("logs/run_*.csv")
     if not files:
         print("No logs found in logs/")
         raise SystemExit
-    path = files[-1]
-
-with open(path, newline="") as f:
-    rows = list(csv.DictReader(f))
-
-if not rows:
-    print(f"{path} has no rows")
-    raise SystemExit
-
-
-def values(column):
-    return np.array([float(r[column]) for r in rows if r[column] != ""])
-
-
-first = float(rows[0]["timestamp"])
-last = float(rows[-1]["timestamp"]) + float(rows[-1]["total_ms"]) / 1000
-duration = last - first
-fps = len(rows) / duration
-
-print(f"Log:      {path}")
-print(f"Cycles:   {len(rows)}")
-print(f"Duration: {duration:.1f} s")
-print(f"FPS:      {fps:.1f}")
-print()
-print(f"{'Stage':<14}{'n':>7}{'p50 ms':>10}{'p95 ms':>10}{'max ms':>10}")
-print("-" * 51)
-
-for column, label in STAGES:
-    v = values(column)
-    if len(v) == 0:
-        print(f"{label:<14}{0:>7}{'-':>10}{'-':>10}{'-':>10}")
-        continue
-    print(
-        f"{label:<14}{len(v):>7}"
-        f"{np.percentile(v, 50):>10.1f}"
-        f"{np.percentile(v, 95):>10.1f}"
-        f"{v.max():>10.1f}"
-    )
-
-total = values("total_ms")
-over = total > OVER_MS
-print()
-print(f"Cycles over {OVER_MS} ms: {over.mean() * 100:.1f}% ({over.sum()} of {len(total)})")
-
-errors = sum(1 for r in rows if r["error"])
-not_visible = sum(1 for r in rows if r["arm_visible"] == "0")
-print(f"Service errors:     {errors}")
-print(f"Arm not visible:    {not_visible} cycles")
+    print_single(summarize(max(files, key=os.path.getmtime)))
+elif len(args) == 1:
+    print_single(summarize(args[0]))
+else:
+    print_compare(summarize(args[0]), summarize(args[1]))

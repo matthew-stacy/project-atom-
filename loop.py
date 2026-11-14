@@ -1,11 +1,20 @@
 import csv
 import os
+import threading
 import time
 from datetime import datetime
 
 import cv2
 import requests
 import scservo_sdk as scs
+
+# --- Run settings ---
+RUN_LABEL = "threaded_preview3"   # goes in the log filename
+RUN_SECONDS = 120        # stop automatically (0 = run until q / Ctrl + C)
+SHOW_PREVIEW = True      # False = no video window (stop with Ctrl + C)
+PREVIEW_EVERY = 3        # draw the window every N cycles
+DRY_RUN = False          # must be False to measure servo writes
+LOG_DIR = "logs"
 
 # --- Service ---
 API_URL = "http://127.0.0.1:8000/predict"
@@ -35,16 +44,56 @@ INVERT = False
 SMOOTHING = 0.3
 DEADBAND = 8
 
-DRY_RUN = False        # must be False to measure servo writes
-RUN_SECONDS = 120      # stop automatically after this long (0 = run until q)
-LOG_DIR = "logs"
-
 FIELDS = [
-    "cycle", "timestamp",
+    "cycle", "timestamp", "frame_id", "skipped_frames",
     "capture_ms", "encode_ms", "request_ms", "inference_ms", "network_ms",
-    "servo_ms", "display_ms", "total_ms",
+    "servo_ms", "frame_age_ms", "display_ms", "total_ms",
     "arm_visible", "angle", "target", "sent", "error",
 ]
+
+
+class CameraThread:
+    """Reads the camera nonstop in the background and keeps only the newest frame."""
+
+    def __init__(self, index=0):
+        self.cap = cv2.VideoCapture(index)
+        self.cond = threading.Condition()
+        self.frame = None
+        self.frame_id = 0
+        self.frame_time = 0.0
+        self.running = True
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        while self.running:
+            ok, frame = self.cap.read()
+            if not ok:
+                time.sleep(0.01)
+                continue
+            captured_at = time.perf_counter()
+            with self.cond:
+                self.frame = frame
+                self.frame_id += 1
+                self.frame_time = captured_at
+                self.cond.notify_all()
+
+    def read_new(self, last_id, timeout=3.0):
+        """Wait for a frame newer than last_id, then return it."""
+        with self.cond:
+            got_new = self.cond.wait_for(
+                lambda: self.frame_id > last_id or not self.running, timeout=timeout
+            )
+            if not got_new or self.frame is None:
+                return None, last_id, None
+            return self.frame, self.frame_id, self.frame_time
+
+    def stop(self):
+        self.running = False
+        with self.cond:
+            self.cond.notify_all()
+        self.thread.join(timeout=1.0)
+        self.cap.release()
 
 
 def ms_since(start):
@@ -78,21 +127,23 @@ if not DRY_RUN:
 
 # --- Log file ---
 os.makedirs(LOG_DIR, exist_ok=True)
-log_path = os.path.join(LOG_DIR, f"run_{datetime.now():%Y%m%d_%H%M%S}.csv")
+log_path = os.path.join(LOG_DIR, f"run_{RUN_LABEL}_{datetime.now():%Y%m%d_%H%M%S}.csv")
 log_file = open(log_path, "w", newline="")
 writer = csv.DictWriter(log_file, fieldnames=FIELDS)
 writer.writeheader()
 
 session = requests.Session()
-cap = cv2.VideoCapture(0)
+camera = CameraThread(0)
 smoothed = None
 last_sent = None
+last_frame_id = 0
 cycle = 0
 
 print("DRY RUN - servo will not move" if DRY_RUN else "LIVE - servo will move")
 print(f"Logging to {log_path}")
 if RUN_SECONDS:
-    print(f"Running for {RUN_SECONDS} seconds. Press q to stop early.")
+    print(f"Running for {RUN_SECONDS} seconds.")
+print("Stop early with q in the video window, or Ctrl + C here.")
 
 run_start = time.perf_counter()
 
@@ -109,13 +160,16 @@ try:
         status = ""
         cycle_start = time.perf_counter()
 
-        # 1. Capture
+        # 1. Get the newest frame (the camera thread already captured it)
         t = time.perf_counter()
-        ok, frame = cap.read()
+        frame, frame_id, frame_time = camera.read_new(last_frame_id)
         row["capture_ms"] = round(ms_since(t), 2)
-        if not ok:
-            print("Camera read failed")
+        if frame is None:
+            print("No new frame from camera")
             break
+        row["frame_id"] = frame_id
+        row["skipped_frames"] = frame_id - last_frame_id - 1 if last_frame_id else 0
+        last_frame_id = frame_id
 
         # 2. Encode
         t = time.perf_counter()
@@ -173,12 +227,17 @@ try:
             row["arm_visible"] = 0
             status = "Arm not visible - holding position"
 
-        # 5. Display
+        # Camera-to-motion latency: from when the frame was taken until now
+        row["frame_age_ms"] = round((time.perf_counter() - frame_time) * 1000, 2)
+
+        # 5. Display (optional, and only every PREVIEW_EVERY cycles)
         t = time.perf_counter()
-        display = cv2.flip(frame, 1)
-        cv2.putText(display, status, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        cv2.imshow("Project ATOM - loop", display)
-        key = cv2.waitKey(1) & 0xFF
+        key = -1
+        if SHOW_PREVIEW and cycle % PREVIEW_EVERY == 0:
+            display = cv2.flip(frame, 1)
+            cv2.putText(display, status, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.imshow("Project ATOM - loop", display)
+            key = cv2.waitKey(1) & 0xFF
         row["display_ms"] = round(ms_since(t), 2)
 
         row["total_ms"] = round(ms_since(cycle_start), 2)
@@ -196,7 +255,7 @@ except KeyboardInterrupt:
     pass
 finally:
     log_file.close()
-    cap.release()
+    camera.stop()
     cv2.destroyAllWindows()
     if not DRY_RUN:
         packet.write1ByteTxRx(port, SERVO_ID, TORQUE_ENABLE, 0)
