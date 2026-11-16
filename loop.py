@@ -1,5 +1,9 @@
 import csv
+import hashlib
+import json
 import os
+import platform
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -9,12 +13,15 @@ import requests
 import scservo_sdk as scs
 
 # --- Run settings ---
-RUN_LABEL = "threaded_preview3"   # goes in the log filename
+RUN_LABEL = "clean_baseline"   # goes in the log filename
 RUN_SECONDS = 120        # stop automatically (0 = run until q / Ctrl + C)
 SHOW_PREVIEW = True      # False = no video window (stop with Ctrl + C)
 PREVIEW_EVERY = 3        # draw the window every N cycles
 DRY_RUN = False          # must be False to measure servo writes
 LOG_DIR = "logs"
+CAMERA_INDEX = 0 # 0 = FaceTime HD (keep Continuity Camera off)
+MODEL_PATH = "pose/models/pose_landmarker_lite.task" # must match service/app.py
+
 
 # --- Service ---
 API_URL = "http://127.0.0.1:8000/predict"
@@ -133,7 +140,56 @@ writer = csv.DictWriter(log_file, fieldnames=FIELDS)
 writer.writeheader()
 
 session = requests.Session()
-camera = CameraThread(0)
+camera = CameraThread(CAMERA_INDEX)
+
+# --- Run metadata: saved next to the CSV so every run records how it was made ---
+REPO = os.path.dirname(os.path.abspath(__file__))
+
+
+def git_commit():
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=REPO, text=True
+        ).strip()
+        dirty = subprocess.call(["git", "diff", "--quiet", "HEAD"], cwd=REPO) != 0
+        return commit + ("-dirty" if dirty else "")
+    except Exception:
+        return "unknown"
+
+
+def file_sha256(path):
+    h = hashlib.sha256()
+    with open(os.path.join(REPO, path), "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+meta = {
+    "run_label": RUN_LABEL,
+    "started": datetime.now().isoformat(timespec="seconds"),
+    "git_commit": git_commit(),
+    "run_seconds": RUN_SECONDS,
+    "preview_every": PREVIEW_EVERY if SHOW_PREVIEW else 0,
+    "dry_run": DRY_RUN,
+    "camera_index": CAMERA_INDEX,
+    "camera_width": camera.cap.get(cv2.CAP_PROP_FRAME_WIDTH),
+    "camera_height": camera.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+    "camera_fps": camera.cap.get(cv2.CAP_PROP_FPS),
+    "send_width": 640,
+    "jpeg_quality": 80,
+    "model_path": MODEL_PATH,
+    "model_sha256": file_sha256(MODEL_PATH),
+    "api_url": API_URL,
+    "servo_id": SERVO_ID,
+    "python": platform.python_version(),
+    "opencv": cv2.__version__,
+    "os": platform.platform(),
+}
+meta_path = log_path.replace(".csv", ".json")
+with open(meta_path, "w") as f:
+    json.dump(meta, f, indent=2)
+print(f"Run settings saved to {meta_path}")
 smoothed = None
 last_sent = None
 last_frame_id = 0
