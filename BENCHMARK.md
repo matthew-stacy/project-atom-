@@ -20,10 +20,10 @@ How the latency numbers in the README were produced, and what is and isn't confi
 ## How to reproduce
 
 1. Start the pose service from the repo root:
-   `uvicorn service.app:app --host 127.0.0.1 --port 8000`
-   ⚠️ Exact command used on Nov 14 was not found in shell history. This is inferred from
-   `loop.py` (`API_URL = http://127.0.0.1:8000/predict`) and the relative model path in `service/app.py`.
-   Workers/flags unknown (default: 1 worker).
+   `./run_service.sh`
+   (runs `uvicorn service.app:app --host 127.0.0.1 --port 8000`, 1 worker)
+   ⚠️ The Nov 14 runs predate this script; the exact command used then wasn't recorded.
+   It was almost certainly the same, based on `loop.py` (`API_URL = http://127.0.0.1:8000/predict`).
 2. Set the run constants at the top of `loop.py` (`RUN_LABEL`, `RUN_SECONDS`, `PREVIEW_EVERY`, `DRY_RUN`), then:
    `python loop.py`
 3. Summarize or compare:
