@@ -43,7 +43,7 @@ def summarize(path):
     for col, label in STAGES:
         v = column(rows, col)
         if len(v):
-            stats[label] = (len(v), np.percentile(v, 50), np.percentile(v, 95), v.max())
+            stats[label] = (len(v), np.percentile(v, 50), np.percentile(v, 95), np.percentile(v, 99), v.max())
         else:
             stats[label] = None
 
@@ -72,15 +72,15 @@ def print_single(s):
     print(f"Duration: {s['duration']:.1f} s")
     print(f"FPS:      {s['fps']:.1f}")
     print()
-    print(f"{'Stage':<15}{'n':>7}{'p50 ms':>10}{'p95 ms':>10}{'max ms':>10}")
-    print("-" * 52)
+    print(f"{'Stage':<15}{'n':>7}{'p50 ms':>10}{'p95 ms':>10}{'p99 ms':>10}{'max ms':>10}")
+    print("-" * 62)
     for _, label in STAGES:
         st = s["stats"][label]
         if st is None:
-            print(f"{label:<15}{0:>7}{'-':>10}{'-':>10}{'-':>10}")
+            print(f"{label:<15}{0:>7}{'-':>10}{'-':>10}{'-':>10}{'-':>10}")
         else:
-            n, p50, p95, mx = st
-            print(f"{label:<15}{n:>7}{p50:>10.1f}{p95:>10.1f}{mx:>10.1f}")
+            n, p50, p95, p99, mx = st
+            print(f"{label:<15}{n:>7}{p50:>10.1f}{p95:>10.1f}{p99:>10.1f}{mx:>10.1f}")
     print()
     print(f"Cycles over {OVER_MS} ms: {s['over_pct']:.1f}% ({s['over_n']} of {s['cycles']})")
     print(f"Service errors:     {s['errors']}")
@@ -93,17 +93,22 @@ def print_compare(a, b):
     print(f"A: {a['path']}")
     print(f"B: {b['path']}")
     print()
-    print(f"{'Stage':<15}{'A p50':>9}{'B p50':>9}{'change':>9}{'A p95':>9}{'B p95':>9}{'change':>9}")
-    print("-" * 69)
+    print(f"{'Stage':<15}{'A p50':>9}{'B p50':>9}{'change':>9}"
+          f"{'A p95':>9}{'B p95':>9}{'change':>9}"
+          f"{'A p99':>9}{'B p99':>9}{'change':>9}")
+    print("-" * 96)
     for _, label in STAGES:
         sa, sb = a["stats"][label], b["stats"][label]
         a50 = sa[1] if sa else None
         b50 = sb[1] if sb else None
         a95 = sa[2] if sa else None
         b95 = sb[2] if sb else None
+        a99 = sa[3] if sa else None
+        b99 = sb[3] if sb else None
         d50 = fmt(b50 - a50) if (sa and sb) else "-"
         d95 = fmt(b95 - a95) if (sa and sb) else "-"
-        print(f"{label:<15}{fmt(a50):>9}{fmt(b50):>9}{d50:>9}{fmt(a95):>9}{fmt(b95):>9}{d95:>9}")
+        d99 = fmt(b99 - a99) if (sa and sb) else "-"
+        print(f"{label:<15}{fmt(a50):>9}{fmt(b50):>9}{d50:>9}{fmt(a95):>9}{fmt(b95):>9}{d95:>9}{fmt(a99):>9}{fmt(b99):>9}{d99:>9}")
     print()
     print(f"FPS:                 A {a['fps']:.1f}   B {b['fps']:.1f}")
     print(f"Cycles over {OVER_MS} ms:  A {a['over_pct']:.1f}%   B {b['over_pct']:.1f}%")
