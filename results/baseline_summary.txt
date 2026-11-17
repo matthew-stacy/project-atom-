@@ -3,15 +3,16 @@ Cycles:   1797
 Duration: 120.1 s
 FPS:      15.0
 
-Stage               n    p50 ms    p95 ms    max ms
----------------------------------------------------
-capture          1797      21.9      26.5      39.3
-encode           1797       0.8       0.9       1.1
-network          1797       2.9       3.0       7.5
-inference        1797      20.4      20.9      36.6
-servo write      1612       0.5       0.5       0.6
-display          1797      20.0      20.3     295.9
-END-TO-END       1797      66.3      71.4     346.6
+Stage                n    p50 ms    p95 ms    p99 ms    max ms
+--------------------------------------------------------------
+capture           1797      21.9      26.5      29.0      39.3
+encode            1797       0.8       0.9       0.9       1.1
+network           1797       2.9       3.0       3.1       7.5
+inference         1797      20.4      20.9      21.1      36.6
+servo write       1612       0.5       0.5       0.5       0.6
+display           1797      20.0      20.3      20.5     295.9
+END-TO-END        1797      66.3      71.4      74.3     346.6
+camera->servo        0         -         -         -         -
 
 Cycles over 100 ms: 0.1% (1 of 1797)
 Service errors:     0

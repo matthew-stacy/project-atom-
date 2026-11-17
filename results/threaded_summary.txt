@@ -1,0 +1,20 @@
+Log:      results/threaded_run.csv
+Cycles:   2759
+Duration: 120.0 s
+FPS:      23.0
+
+Stage                n    p50 ms    p95 ms    p99 ms    max ms
+--------------------------------------------------------------
+capture           2759       0.0       0.0       0.0      35.5
+encode            2759       0.8       0.8       0.8       1.0
+network           2759       2.7       2.9       3.0       5.9
+inference         2759      19.5      19.8      20.0      36.7
+servo write       2243       0.5       0.5       0.5       0.8
+display           2759      19.9      20.4      20.7     294.3
+END-TO-END        2759      43.3      44.0      44.4     346.3
+camera->servo     2759      39.7      55.6      59.1      70.3
+
+Cycles over 100 ms: 0.0% (1 of 2759)
+Service errors:     0
+Arm not visible:    228 cycles
+Skipped frames:     840
